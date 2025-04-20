@@ -1,0 +1,97 @@
+@startuml SmartHome_Container_Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Система умного дома - Контейнеры, упращенный вариант для бизнеса, без доменных взаимодействий и внутренних баз данных
+
+' === Акторы ===
+Person(User, "Жилец", "Управление домом")
+Person(Admin, "Администратор", "Настройка и отчёты")
+Person(Technician, "Техник", "Анализ аварий, устранение неполадок")
+
+' === Клиентские приложения ===
+Container(Mobile_App, "Мобильное приложение", "Android/iOS", "Управление домом")
+Container(Web_App, "Веб-приложение", "React", "Администрирование системы")
+
+' === Основные контейнеры ===
+Container(API_GW, "API Gateway", "KONG", "Единая точка входа для REST API")
+
+' Доменная структура сохраняется через границы
+Boundary(Device_Domain, "Домен: Умные устройства (Smart Devices)") {
+    Container(Climate, "Climate Service", "Python", "Контроль HVAC")
+    Container(Lighting, "Lighting Service", "Python", "Управление светом")
+    Container(Security, "Security Service", "Java", "Охранные системы")
+    Container(Emergency, "Emergency Service", "Java", "Аварийные ситуации")
+}
+
+Boundary(User_Domain, "Домен: Пользователи") {
+    Container(User_Management, "User Service", "Spring Boot", "Регистрация/аутентификация")
+}
+Boundary(Actions_Domain, "Домен: Умный дом (Smart Home)"){
+    Container(User_Actions, "Scenario Service", "Spring Boot", "Пользовательские сценарии")
+}
+
+
+Boundary(Analytics_Domain, "Домен: Аналитика") {
+    Container(Analytics, "Analytics Service", "Python + Spark", "ML-анализ данных")
+    Container(Reporting, "Reporting Service", "Java", "Генерация отчётов, дашборды")
+    Container(Recommendations, "Recommendation Service", "Python", "Персонализированные рекомендации")
+}
+
+' === Инфраструктурные сервисы ===
+Container(Event_Bus, "Event Bus", "Apache Kafka", "Асинхронная коммуникация")
+Container(Notifications, "Notification Service", "Node.js", "SMS/Email/Push уведомления")
+ContainerDb(TSDB, "Timescale Cache", "TimescaleDB", "Хранение показаний датчиков и комманд управления")
+ContainerDb(Redis, "Redis Hardware Сache", "Redis", "Кэширование данных датчиков")
+
+Boundary(Ext_devices, "Внешние устройства и сервисы"){
+    System_Ext(Security_HW, "Охранные устройства", "IoT (MQTT)")
+    System_Ext(Climate_HW, "Климатические устройства", "IoT (MQTT)")
+    System_Ext(Lighting_HW, "Устройства освещения", "IoT (MQTT)")
+    System_Ext(Emergency_HW, "Аварийные датчики", "IoT (MQTT)")
+    ' === Внешние системы ===
+    System_Ext(Weather, "Погодный API", "REST API")
+}
+
+
+' === Взаимодействия ===
+' Пользователи
+User --> Mobile_App : "Управление"
+Admin --> Web_App : "Администрирование"
+Technician --> Mobile_App : "Диагностика"
+
+' API Gateway
+Mobile_App --> API_GW : "HTTPS (REST)"
+Web_App --> API_GW : "HTTPS (REST)"
+
+' Маршрутизация API Gateway
+API_GW --> User_Management : "/users"
+API_GW --> User_Actions : "/actions"
+API_GW --> Reporting : "/reports"
+API_GW --> Climate : "/climate"
+API_GW --> Lighting: "/lighting"
+API_GW --> Security: "/security"
+API_GW --> Emergency: "/emergency"
+API_GW --> Analytics: "/analitycs"
+API_GW -->  Recommendations: "/recommendations"
+
+Device_Domain -up-> Redis
+Device_Domain -down-> TSDB : "Агрегированные данные"
+
+' Прямые связи
+Emergency_HW --> Emergency: "Сообщения аварийных датчиков (MQTT)"
+Emergency --> Ext_devices : "Аварийные отключения (MQTT) - через обращения к другим сервисам"
+Security <--> Security_HW : "Управление для быстрого отклика (MQTT)"
+
+' Event Bus
+Climate <--> Event_Bus : "Управлени климатом\nПогодные уведомления\nДанные датчиков"
+Event_Bus <--> Climate_HW : "Управление климатом\показания датчиков"
+Event_Bus -down-> Weather : "Опрос погодного сервиса"
+
+Lighting <--> Event_Bus : "Управлени освещением/данные датчиков"
+Event_Bus <--> Lighting_HW : "Управление освещением/показания датчиков"
+Event_Bus -right-> Notifications : "Экстренные сообщения, уведомления о погодных аномалиях, индивидуальные подписки"
+
+Analytics --> TSDB : "Аналитика/Мониторинг"
+Event_Bus -left-> TSDB : "Отфильтрованные данные датчиков/Комманды управления (Kafka Consumer)"
+
+@enduml

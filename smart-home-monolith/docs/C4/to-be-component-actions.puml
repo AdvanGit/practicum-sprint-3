@@ -1,0 +1,20 @@
+@startuml ClimateService_Components
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+' === Контейнер ===
+Container_Boundary(actions_service, "Actions Service (Python)") {
+
+  ' === Ядро сервиса ===
+  Component(controller, "Action Controller", "Основная бизнес-логика HVAC")
+  Component(device_regestry, "Device Registry", "Данные устройств")
+  Component(actions_store, "Actions Store", "Хранилище пользовательских сценариев использования")
+
+
+
+}
+
+' === Внешние зависимости ===
+System_Ext(api_gw, "API Gateway", "KONG")
+System_Ext(event_bus, "Event Bus", "Kafka")
+
+@enduml

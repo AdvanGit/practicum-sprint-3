@@ -1,0 +1,49 @@
+@startuml ClimateService_Components
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+' === Контейнер ===
+Container_Boundary(climate_service, "Climate Service (Python)") {
+
+  ' === Ядро сервиса ===
+  Component(controller, "Climate Controller", "Основная бизнес-логика HVAC")
+  Component(scheduler, "Schedule Manager", "Управление расписаниями c учетом пользовательских сценариев")
+  Component(weather_adapter, "Weather Service", "Интеграция с погодным API")
+  
+  ' === Обработка данных ===
+  Component(data_filter, "Data Filter", "Фильтрация и валидация данных")
+
+  ' === Работа с хранилищами ===
+  Component(redis_client, "Redis Client", "Кеширование текущих значений")
+  Component(tsdb_writer, "TSDB Writer", "Запись агрегированных данных")
+  Component(event_producer, "Kafka Producer", "Отправка событий в Event Bus")
+  Component(event_consumer, "Kafka Consumer", "Получение событий датчиков и расписаний из Event Bus")
+
+  ' === Взаимодействия ===
+  controller --> scheduler : "Получить расписание"
+  controller --> weather_adapter : "Запросить прогноз"
+  event_consumer --> data_filter : "Сырые данные"
+  data_filter --> controller : "Очищенные данные"
+  controller --> event_producer : "Команды устройствам"
+  controller --> redis_client : "Обновить, получить кеш датчиков"
+  data_filter --> tsdb_writer : "Агрегированные данные (раз в 10 мин)"
+  data_filter --> event_producer : "События для аналитики"
+  weather_adapter --> redis_client : "Получить, обновить кэш погоды"
+  event_consumer --> controller : "Обновления по рассписанию"
+}
+
+' === Внешние зависимости ===
+System_Ext(api_gw, "API Gateway", "KONG")
+System_Ext(event_bus, "Event Bus", "Kafka")
+System_Ext(redis, "Redis", "Кеш данных")
+System_Ext(tsdb, "TimescaleDB", "Агрегированные данные")
+System_Ext(weather_api, "Погодный API", "REST")
+
+' === Ключевые связи ===
+api_gw --> controller : "REST /climate/*"
+event_bus --> event_consumer  : "данные датчиков"
+weather_adapter --> weather_api : "REST"
+redis_client --> redis : "SET/GET"
+tsdb_writer --> tsdb : "INSERT"
+event_producer --> event_bus : "События (JSON)"
+api_gw <-- scheduler: "REST/actions/*"
+@enduml
