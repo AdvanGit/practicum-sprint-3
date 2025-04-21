@@ -1,0 +1,19 @@
+@startuml Device_Service_Components
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Device Service: Компоненты
+
+Container(Device_Service, "Device Service", "Java", "Управление устройствами")
+
+Component(Device_Controller, "Device Controller", "REST API", "Принимает команды от API Gateway")
+Component(Device_Processor, "Device Processor", "Java", "Валидация и обработка команд")
+Component(Device_State_Cache, "Device State Cache", "Redis Client", "Кэш текущих состояний")
+Component(Device_Event_Producer, "Device Event Producer", "Kafka Producer", "Отправка событий в Kafka")
+
+Device_Controller --> Device_Processor : "Обработка запроса"
+Device_Processor --> Device_State_Cache : "Чтение/запись состояний"
+Device_Processor --> Device_Registry : "Запись в PostgreSQL"
+Device_Event_Producer --> Event_Bus : "Отправка событий (устройство обновлено)"
+Device_Processor --> Device_Event_Producer : "Генерация события"
+
+@enduml

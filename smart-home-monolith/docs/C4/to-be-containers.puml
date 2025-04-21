@@ -12,19 +12,19 @@ Container(Mobile_App, "Мобильное приложение", "Android/iOS", 
 Container(Web_App, "Веб-приложение", "React", "Администрирование системы")
 
 ' === Основные контейнеры ===
-Container(API_GW, "API Gateway", "KONG", "Единая точка входа для REST API")
+Container(API_GW, "API Gateway", "KONG", "Единая точка входа для REST API, Распределенные транзакции, балансировка")
 ContainerDb(Redis_Api, "Static Cache", "Redis", "Кэширование статических данных")
 
 
 Boundary(User_Domain, "Домен: Пользователи (SmartHome.Users)") {
     Container(Identity_Service, "Identity Service", "Spring Boot", "Регистрация/аутентификация")
-    Container(Notification_Service, "Notification Service", "Node.js", "SMS/Email/Push уведомления")
+    Container(Notification_Service, "Notification Service", "Node.js", "SMS/Email/Push\nуведомления")
     ContainerDb(User_Registry, "User Registry", "PostGre", "Профили пользователей, данные авторизации")
 
     Identity_Service --> User_Registry : CRUD
 }
 Boundary(Devices_Domain, "Домен: Устройства (SmartHome.Devices)"){
-    Container(Device_Manager, "Device Manager", "Java", "Регистрация устройств:\nДобавление,Удаление,Валидации")
+    Container(Device_Manager, "Device Manager", "Java", "Регистрация устройств:\nДобавление,Удаление\nВалидации")
     Container(Map_Manager, "Map Manager", "Java", "Группировка устройств:\nДобавление,Удаление")
     ContainerDb(Device_Registry, "Device registry", "PostGre",  "Хранение устройств пользователей")
     ContainerDb(Map_Registry, "Map registry", "PostGre", "Пользовательская групировка устройств (только для UI/UX))")
@@ -39,8 +39,8 @@ Boundary(States_Domain, "Домен: Состояния (SmartHome.States)"){
     Container(State_Manager, "State Manager", "Python", "Создание/Удаление/Ред. состояний (конфигураций)")
     Container(State_Service, "State Service", "Python", "Прямое управление группами (активация конфигурации)")
 
-    ContainerDb(Values_Registry, "Values Registry", "PostGre", "Хранение пользовательских значений (ValueId, DeviceId, значение)")
-    ContainerDb(States_Registry, "States Registry", "PostGre", "Хранение пользовательских состояний (StateId - ValueId's)")
+    ContainerDb(Values_Registry, "Values Registry", "PostGre", "Хранение пользовательских значений ((k)ValueId, (fk)DeviceId, значение)")
+    ContainerDb(States_Registry, "States Registry", "PostGre", "Хранение пользовательских состояний ((k)StateId - (fk)ValueId's)")
 
     State_Manager --> States_Registry : CRUD
     State_Manager --> Values_Registry : CRUD
@@ -64,8 +64,8 @@ Boundary(Actions_Domain, "Домен: Сценарии (SmartHome.Actions)"){
     Action_Manager --> Trigger_Registry : "CRUD"
     Action_Manager --> Schedule_Registry : "CRUD"
 
-    Schedule_Service -[hidden]left-> Trigger_Service
-    Weather_Service -[hidden]left-> Schedule_Service
+    Weather_Service -[hidden]left-> Trigger_Registry
+    Trigger_Registry -[hidden]left-> Schedule_Registry
 }
 Boundary(Controls_Domain, "Домен: Контроль (SmartHome.Controls)"){
     Container(Climate_Control_Service, "Climate Service", "Java", "Контроль HVAC")
@@ -75,23 +75,25 @@ Boundary(Controls_Domain, "Домен: Контроль (SmartHome.Controls)"){
 
     ContainerDb(Redis, "Hardware Сache", "Redis", "Кэширование данных датчиков")
 
-    Climate_Control_Service --> Redis: R/W
-    Lighting_Control_Service --> Redis : R/W
-    Security_Control_Service --> Redis: W
-    Emergency_Service --> Redis : W
+    Climate_Control_Service -up-> Redis: R/W
+    Lighting_Control_Service -up-> Redis : R/W
+    Security_Control_Service -up-> Redis: W
+    Emergency_Service -up-> Redis : W
 
-    Lighting_Control_Service -[hidden]right-> Climate_Control_Service
-    Climate_Control_Service -[hidden]right-> Emergency_Service
-    Emergency_Service -[hidden]right-> Security_Control_Service
+    Climate_Control_Service -[hidden]right-> Lighting_Control_Service
+    Lighting_Control_Service -[hidden]right-> Security_Control_Service
+    Security_Control_Service -[hidden]right-> Emergency_Service
 }
 
 Boundary(Analytics_Domain, "Домен: Аналитика (SmartHome.Analysis)") {
     Container(Analytics_Service, "Analytics Service", "Python + Spark", "ML-анализ данных")
     Container(Report_Service, "Reporting Service", "Java", "Генерация отчётов, дашборды")
     Container(Recommendations, "Recommendation Service", "Python", "Персонализированные рекомендации")
-    ContainerDb(TSDB, "Timescale Cache", "TimescaleDB", "Хранение показаний датчиков и комманд управления")
+    ContainerDb(TSDB, "Timescale Cache", "TimescaleDB", "Хранение показани\nдатчиков\nи комманд управления")
 
-    Analytics_Service --> TSDB : "Анализ данных"   
+    Analytics_Service -right-> TSDB : "Анализ"
+    Report_Service -down-> Analytics_Service
+    Recommendations -down-> Analytics_Service
 }
 
 ' === Инфраструктурные сервисы ===
@@ -106,8 +108,6 @@ Boundary(Ext_devices, "Внешние устройства"){
 }
 
 System_Ext(Weather_Api, "Погодный API", "REST API")
-
-
 
 ' === Взаимодействия ===
 ' Пользователи
@@ -135,7 +135,7 @@ API_GW --> Map_Manager : "/devices/maps/*"
 API_GW --> Climate_Control_Service : "/controls/climate/*"
 API_GW --> Lighting_Control_Service : "/controls/lighting/*"
 API_GW --> Security_Control_Service : "/controls/security/*"
-API_GW --> Emergency_Service : "/controls/emergency/*"
+API_GW <-- Emergency_Service : "[POST]/controls/*"
 
 API_GW --> Action_Manager : "/actions/*"
 API_GW <-- Schedule_Service : "[POST] /states/control/* (Activate state)"
