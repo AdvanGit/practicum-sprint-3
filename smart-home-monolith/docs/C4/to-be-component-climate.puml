@@ -36,6 +36,6 @@ api_gw --> controller : "Прямые обращения управления о
 event_bus --> event_consumer  : "данные датчиков"
 redis_client --> redis : "R/W"
 event_producer --> event_bus : "События"
-data_filter --> api_gw : "Экстренные запросы [POST]emergency://*"
+data_filter --> api_gw : "Экстренные запросы [REST]emergency://*"
 
 @enduml
