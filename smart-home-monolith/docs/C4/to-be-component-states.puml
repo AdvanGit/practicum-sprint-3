@@ -1,0 +1,29 @@
+@startuml ClimateService_Components
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title "C4 - level3 - Общая схема компонентов состояний"
+
+left to right direction
+
+Container_Boundary(State_Service, "State Service") {
+    Component(State_Handler, "State Handler", "Получает конфигурацию и устанавливает значения устройствам")
+    Component(Postgres_Client, "Database Client", "Трансляция запросов на язык транзакций")
+}
+
+Container_Boundary(State_Manager, "State Manager"){
+    Component(Postgres_Client_2, "Database Client", "Трансляция запросов на язык транзакций")
+    Component(State_Controller, "State Controller", "Логика работы с пользовательскими конфигурациями")
+}
+
+System_Ext(API_GW, "Api-Gateway")
+System_Ext(State_Repository, "State Db")
+
+
+API_GW <--> State_Handler : "принимает [StateId, OperationType]\nотправляет [DeviceId, Type, Value] в Control Service""
+State_Handler --> Postgres_Client : "Получить значения устройств по указанному состояни ю"
+Postgres_Client --> State_Repository : "SELECT (DeviceId, Value) WHERE StateId = {StateId}"
+
+API_GW --> State_Controller : "GET/POST"
+State_Controller --> Postgres_Client_2 : "Редактирование конфигураций (заготовленных значений для множества устройств)"
+Postgres_Client_2 --> State_Repository : "CRUD"
+@enduml

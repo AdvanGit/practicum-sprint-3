@@ -1,7 +1,7 @@
 @startuml ClimateService_Components
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
-title "C4 - level3 - Общая схема компонента контроля устройств"
+title "C4 - level3 - Общая схема компонента контроля устройств на примере Климат-контроля"
 
 ' === Контейнер ===
 Container_Boundary(climate_service, "Climate Service (Python)") {

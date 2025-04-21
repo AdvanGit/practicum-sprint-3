@@ -6,7 +6,7 @@ title "C4 - level3 - Общая схема компонентов Сценари
 left to right direction
 
 ' === Контейнер ===
-Container_Boundary(Schedule_service, "Schedule Service (Python)") {
+Container_Boundary(Schedule_service, "Schedule Service") {
   Component(Schedule_Listener, "Schedule Listener", "Определение и активация состояний (конфигураций)", "Анализ данных на предмет актуальных по времени задач")
   Component(Postgres_Client, "Database Client", "Трансляция запросов на язык транзакций")
 }

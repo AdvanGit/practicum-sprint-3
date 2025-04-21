@@ -39,11 +39,9 @@ Boundary(States_Domain, "Домен: Состояния (SmartHome.States)"){
     Container(State_Manager, "State Manager", "Python", "Создание/Удаление/Ред. состояний (конфигураций)")
     Container(State_Service, "State Service", "Python", "Прямое управление группами (активация конфигурации)")
 
-    ContainerDb(Values_Registry, "Values Registry", "PostGre", "Хранение пользовательских значений ((k)ValueId, (fk)DeviceId, значение)")
     ContainerDb(States_Registry, "States Registry", "PostGre", "Хранение пользовательских состояний ((k)StateId - (fk)ValueId's)")
 
     State_Manager --> States_Registry : CRUD
-    State_Manager --> Values_Registry : CRUD
     State_Service --> States_Registry : READ
 }
 Boundary(Actions_Domain, "Домен: Сценарии (SmartHome.Actions)"){

@@ -1,19 +1,23 @@
-@startuml Device_Service_Components
+@startuml ClimateService_Components
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
-title Device Service: Компоненты
+title "C4 - level3 - Общая схема компонентов состояний"
 
-Container(Device_Service, "Device Service", "Java", "Управление устройствами")
+left to right direction
 
-Component(Device_Controller, "Device Controller", "REST API", "Принимает команды от API Gateway")
-Component(Device_Processor, "Device Processor", "Java", "Валидация и обработка команд")
-Component(Device_State_Cache, "Device State Cache", "Redis Client", "Кэш текущих состояний")
-Component(Device_Event_Producer, "Device Event Producer", "Kafka Producer", "Отправка событий в Kafka")
+Container_Boundary(State_Service, "State Service") {
+    Component(State_Manager, "State Manager", "Настройка конфигураций устройств")
+    Component(State_Controller, "State Controller", "Получает конфигурацию и устанавливает значения устройствам")
+    Component(Postgres_Client, "Database Client", "Трансляция запросов на язык транзакций")
+}
 
-Device_Controller --> Device_Processor : "Обработка запроса"
-Device_Processor --> Device_State_Cache : "Чтение/запись состояний"
-Device_Processor --> Device_Registry : "Запись в PostgreSQL"
-Device_Event_Producer --> Event_Bus : "Отправка событий (устройство обновлено)"
-Device_Processor --> Device_Event_Producer : "Генерация события"
+System_Ext(API_GW, "Api-Gateway")
+System_Ext(State_Repository, "State Db")
 
+
+API_GW <--> State_Controller : "принимает [StateId: OperationType]\nотправляет [DeviceId: Value]""
+API_GW --> State_Manager : "GET/POST"
+State_Manager --> Postgres_Client : "Редактирование конфигураций (заготовленных значений для множества устройств)"
+State_Controller --> Postgres_Client : "Получить значения устройств по указанному состоянию"
+Postgres_Client --> State_Repository : "SET\SELECT (DeviceId, Value) WHERE StateId = {StateId}"
 @enduml
