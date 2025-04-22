@@ -10,20 +10,21 @@ Container_Boundary(State_Service, "State Service") {
     Component(Postgres_Client, "Database Client", "Трансляция запросов на язык транзакций")
 }
 
-Container_Boundary(State_Manager, "State Manager"){
-    Component(Postgres_Client_2, "Database Client", "Трансляция запросов на язык транзакций")
-    Component(State_Controller, "State Controller", "Логика работы с пользовательскими конфигурациями")
+Container_Boundary(State_Manager_Service, "State Manager"){
+    Component(State_Repository, "State Repository", "Хранилище состояний")
+    Component(State_Manager, "State Manager", "Единая точка доступа для управления состояниями")
+
+    State_Manager --> State_Repository : "CRUD"
 }
 
 System_Ext(API_GW, "Api-Gateway")
-System_Ext(State_Repository, "State Db")
-
+System_Ext(State_Db, "State Db")
 
 API_GW <--> State_Handler : "принимает [StateId, OperationType]\nотправляет [DeviceId, Type, Value] в Control Service""
 State_Handler --> Postgres_Client : "Получить значения устройств по указанному состояни ю"
-Postgres_Client --> State_Repository : "SELECT (DeviceId, Value) WHERE StateId = {StateId}"
 
-API_GW --> State_Controller : "GET/POST"
-State_Controller --> Postgres_Client_2 : "Редактирование конфигураций (заготовленных значений для множества устройств)"
-Postgres_Client_2 --> State_Repository : "CRUD"
+Postgres_Client --> State_Db : "SELECT (DeviceId, Value) WHERE StateId = {StateId}"
+State_Repository --> State_Db : SET/SELECT
+
+API_GW --> State_Manager : "GET/POST"
 @enduml

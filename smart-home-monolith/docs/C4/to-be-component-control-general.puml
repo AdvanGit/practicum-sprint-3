@@ -1,0 +1,32 @@
+@startuml components_control_general
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title "C4 - level3 - Общая схема компонента контроля устройств"
+
+' === Контейнер ===
+Container_Boundary(device_control, "Device Control (Python)") {
+
+  ' === Ядро сервиса ===
+  Component(controller, "Device Controller", "Основная бизнес-логика управления устройством, детекция аномалий")
+  
+  ' === Работа с хранилищами ===
+  Component(redis_client, "Redis Client", "Кеширование текущих значени в топиках по каждому типу устройств")
+  Component(event_producer, "Kafka Producer", "Отправка событий в Event Bus")
+
+  ' === Взаимодействия ===
+  controller --> event_producer : "Команды устройствам"
+  controller --> redis_client : "Обновить, получить кеш состояний"
+}
+
+' === Внешние зависимости ===
+System_Ext(api_gw, "API Gateway", "KONG")
+System_Ext(event_bus, "Event Bus", "Kafka")
+System_Ext(redis, "Redis", "Кеш данных")
+
+' === Ключевые связи ===
+api_gw --> controller : "Прямые обращения управления от Device Service с параметрами устройства [POST]controls://*/*\n\n[GET] последнее состояние устройства из кэша"
+
+redis_client --> redis : "R/W"
+event_producer --> event_bus : "Публикация"
+
+@enduml

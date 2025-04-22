@@ -1,0 +1,125 @@
+@startuml SmartHome_ER_Diagram
+
+title Основные сущности и их отношения системы умного дома
+
+entity "User" {
+  + user_id [PK]
+  --
+  username
+  password_hash
+  email
+  phone
+  role
+  created_at
+  last_login
+}
+
+entity "Device" {
+  + device_id [PK]
+  --
+  # user_id [FK]
+  device_type
+  name
+  location
+  status
+  last_updated
+}
+
+entity "DeviceGroup" {
+  + group_id [PK]
+  --
+  # user_id [FK]
+  name
+  description
+}
+
+entity "State" {
+  + state_id [PK]
+  --
+  # user_id [FK]
+  name
+  description
+  is_active
+}
+
+entity "StateValue" {
+  + value_id [PK]
+  --
+  # state_id [FK]
+  # device_id [FK]
+  target_value
+}
+
+entity "ScheduleTrigger" {
+  + schedule_id [PK]
+  --
+  # state_id [FK]
+  cron_expression
+  is_active
+}
+
+entity "DeviceTrigger" {
+  + trigger_id [PK]
+  --
+  # state_id [FK]
+  # device_id [FK]
+  condition_type
+  condition_value
+  is_active
+}
+
+entity "WeatherTrigger" {
+  + trigger_id [PK]
+  --
+  # state_id [FK]
+  weather_type
+  location
+  condition_type
+  condition_value
+  is_active
+}
+
+' Связи между сущностями
+User ||--o{ Device : "has"
+User ||--o{ DeviceGroup : "creates"
+User ||--o{ State : "creates"
+
+DeviceGroup ||--o{ Device : "contains"
+
+State ||--o{ StateValue : "contains"
+StateValue }o--|| Device : "references"
+
+State ||--o{ ScheduleTrigger : "has"
+State ||--o{ DeviceTrigger : "has"
+State ||--o{ WeatherTrigger : "has"
+
+DeviceTrigger }o--|| Device : "monitors"
+
+' Дополнительные индексы и примечания
+note top of User
+  Хранит данные пользователей и их роли
+  (User, Admin, Technician)
+end note
+
+note top of Device
+  Типы устройств:
+    climate(heating, cooling, humidity), 
+    lighting(lamps),
+    security(cameras, locks),
+    emergency sensors(glass,fire,electricity),
+    common sensors(move sensor, light sensor), 
+    common relay(energy swither)
+end note
+
+note top of State
+  Пользовательские конфигурации
+  (например, "Дома", "В отъезде", "День", "Ночь", "Жара", "Холод")
+end note
+
+
+note top of DeviceGroup
+  Для удобства конфигураций
+  (например, "Ванная комната", "Внешнее освещение")
+end note
+
+@enduml
