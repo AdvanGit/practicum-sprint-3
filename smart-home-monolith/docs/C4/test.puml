@@ -1,0 +1,17 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+Component(Датчики, "Устройства", "MQTT")
+Component(Kafka, "Event Bus", "Kafka")
+Component(Raw_TSDB, "Raw TSDB", "Сырые данные 7 дней")
+Component(ETL, "ETL Pipeline", "Flink/Spark")
+Component(Climate_TSDB, "Climate TSDB", "Оптимизированная схема")
+Component(Redis, "Redis Cache", "Актуальные данные")
+
+Датчики --> Kafka : "События"
+Kafka --> Raw_TSDB : "Сырые данные (TTL=7d)"
+Kafka --> ETL : "Потоковая обработка"
+ETL --> Climate_TSDB : "Только климатические метрики"
+ETL --> Redis : "Текущие значения"
+Climate_Service --> Climate_TSDB : "Чтение"
+Climate_Service --> Redis : "Быстрые запросы"

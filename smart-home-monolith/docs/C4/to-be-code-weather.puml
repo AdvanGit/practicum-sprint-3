@@ -1,0 +1,51 @@
+@startuml Code_Weather_Service
+
+title "C4 Level 4 - Code - Погодный сервис"
+
+skinparam groupInheritance 2
+
+package "Weather Service" {
+  class "WeatherListener" {
+    +checkWeatherChanges()
+    +getCurrentWeather(): WeatherData
+    +notifyTemperatureChange()
+  }
+  
+  class "WeatherAdapter" {
+    +fetchWeatherData(): RawData
+    +normalize(data: RawData): WeatherData
+  }
+  
+  class "WeatherCache" {
+    +get(location: String): WeatherData
+    +put(location: String, data: WeatherData)
+  }
+
+  class "WeatherProducer"{
+    +publishWeatherEvent() : EventMessage
+  }
+  
+  WeatherListener --> WeatherAdapter : "fetchWeatherData()"
+  WeatherListener --> WeatherCache : "get/put"
+  WeatherListener --> WeatherProducer : "notify()"
+}
+
+class "ExternalWeatherAPI" {
+  +getCurrent(location: String)
+}
+
+class "KafkaEventBus" {
+  +subscribe(topic: String, callback)
+  +publish(topic: String, message)
+}
+
+class "Redis" {
+  +SETEX(key, ttl, value)
+  +GET(key)
+}
+
+WeatherAdapter ..|> ExternalWeatherAPI : "calls"
+WeatherCache ..|> Redis : "uses"
+WeatherProducer ..|> KafkaEventBus : "publish weather event"
+
+@enduml

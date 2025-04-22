@@ -1,0 +1,162 @@
+@startuml Code_Action_Manager
+
+title "C4 Level 4 - Code - Сервис управления пользовательскими сценариями"
+
+package "Action Manager" {
+    interface "IScheduleRepository" <<interface>> {
+        +getSchedulesByState(stateId: int): List<Schedule>
+        +createSchedule(stateId: int, time: Time, dayOfWeek: DayOfWeek): Schedule
+        +updateSchedule(id: int, changes: Map<String, Object>): Schedule
+        +deleteSchedule(id: int): boolean
+    }
+
+    interface "IDeviceTriggerRepository" <<interface>> {
+        +getTriggersByDevice(deviceId: String): List<DeviceTrigger>
+        +getTriggersByState(stateId: int): List<DeviceTrigger>
+        +saveTrigger(trigger: DeviceTrigger): boolean
+        +deleteTrigger(triggerId: String): boolean
+    }
+
+    interface "IWeatherTriggerRepository" <<interface>> {
+        +getTriggersByState(stateId: int): List<WeatherTrigger>
+        +saveTrigger(trigger: WeatherTrigger): boolean
+        +deleteTrigger(triggerId: String): boolean
+    }
+
+    class RestClient {
+        -baseUrl: String
+        -httpClient: HttpClient
+        -mapper: ObjectMapper
+
+        +createSchedule(stateId: int, dateTime: DateTime): Schedule
+        +createWeatherTrigger(stateId: int, condition: WeatherCondition): WeatherTrigger
+        +createDeviceTrigger(deviceId: int, condition: DeviceCondition): DeviceTrigger
+
+        +getSchedulesByState(stateId: int): List<Schedule>
+        +getWeatherTriggersByState(stateId: int): List<WeatherTriggerDTO>
+        +getDeviceTriggersByState(stateId: int): List<DeviceTriggerDTO>
+        +getDeviceTriggers(deviceId: int): List<DeviceTriggerDTO>
+
+        +deleteSchedule(scheduleId: int): bool
+        +deleteWeatherTrigger(triggerId: int)
+        +deleteDeviceTrigger(triggerId: int)
+
+        -buildRequest(url: String, method: HttpMethod, body: Object): HttpRequest
+        -handleResponse<T>(response: HttpResponse<String>, type: Class<T>): Optional<T>
+    }
+
+    class "ScheduleRepositoryImpl" {
+        -ORMClient: ORMClient
+        +getSchedulesByState(stateId: int): List<Schedule>
+        +createSchedule(stateId: int, time: Time, dayOfWeek: DayOfWeek): Schedule
+        +updateSchedule(id: int, changes: Map<String, Object>): Schedule
+        +deleteSchedule(id: int): boolean
+    }
+
+    class "DeviceTriggerRepositoryImpl" {
+        -ORMClient: ORMClient
+        +getTriggersByDevice(deviceId: String): List<DeviceTrigger>
+        +getTriggersByState(stateId: int): List<DeviceTrigger>
+        +saveTrigger(trigger: DeviceTrigger): boolean
+        +deleteTrigger(triggerId: String): boolean
+    }
+
+    class "WeatherTriggerRepositoryImpl" {
+        -ORMClient: ORMClient
+        +getTriggersByState(stateId: int): List<WeatherTrigger>
+        +saveTrigger(trigger: WeatherTrigger): boolean
+        +deleteTrigger(triggerId: String): boolean
+    }
+
+    class "ORMClient" {
+        -dataSource: DataSource
+        +executeQuery(sql: String, params: Object[]): ResultSet
+        +executeUpdate(sql: String, params: Object[]): int
+        +beginTransaction()
+        +commit()
+        +rollback()
+        +close()
+    }
+
+    class "ORMAdapter" {
+        -connection_config
+    }
+
+    interface "IMapper" {
+        -MapperConfiguration
+        +mapToDeviceTrigger(dto: DeviceTriggerDTO): DeviceTrigger
+        +mapToWeatherTrigger(dto: WeatherTriggerDTO): WeatherTrigger
+        +mapToSchedule(dto: ScheduleDTO): Schedule
+    }
+
+    RestClient --> IMapper : uses
+    RestClient --> IScheduleRepository : uses
+    RestClient --> IDeviceTriggerRepository : uses
+    RestClient --> IWeatherTriggerRepository : uses
+
+    IScheduleRepository <|.. ScheduleRepositoryImpl : implements
+    IDeviceTriggerRepository <|.. DeviceTriggerRepositoryImpl : implements
+    IWeatherTriggerRepository <|.. WeatherTriggerRepositoryImpl : implements
+
+    ScheduleRepositoryImpl --> ORMClient
+    DeviceTriggerRepositoryImpl --> ORMClient
+    WeatherTriggerRepositoryImpl --> ORMClient
+
+    ORMClient --> ORMAdapter
+}
+
+class "Schedule" <<Entity>> {
+    -id: int
+    -stateId: int
+    -time: Time
+    -dayOfWeek: DayOfWeek
+    +getters()
+    +setters()
+}
+
+class "DeviceTrigger" <<Entity>> {
+    -id: int
+    -deviceId: int
+    -condition: DeviceCondition
+    -stateId: int
+    +getters()
+    +setters()
+}
+
+class "WeatherTrigger" <<Entity>> {
+    -id: int
+    -weatherCondition: WeatherCondition
+    -stateId: int
+    +getters()
+    +setters()
+}
+
+class "ScheduleDTO" <<DTO>> {
+    -id: int
+    -stateId: int
+    -time: String
+    -dayOfWeek: String
+    +toEntity(): Schedule
+}
+
+class "DeviceTriggerDTO" <<DTO>> {
+    -id: int
+    -deviceId: int
+    -condition: String
+    -stateId: int
+    +toEntity(): DeviceTrigger
+}
+
+class "WeatherTriggerDTO" <<DTO>> {
+    -id: int
+    -condition: String
+    -stateId: int
+    +toEntity(): WeatherTrigger
+}
+
+ORMAdapter --> "PostgreSQL" : connects to
+
+database PostgreSQL <<Database>> {
+}
+
+@enduml

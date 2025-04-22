@@ -1,0 +1,71 @@
+@startuml Components_Action_General
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title "C4 - level3 - Общая схема компонентов Сценария"
+
+left to right direction
+
+' === Контейнер ===
+Container_Boundary(Schedule_service, "Schedule Service") {
+  Component(Schedule_Listener, "Schedule Listener", "Прослушка базы для определения и активация состояний (конфигураций)")
+  Component(Postgres_Client, "Database Client", "Трансляция запросов на язык транзакций")
+  Schedule_Listener --> Postgres_Client : "GET"
+}
+
+Container_Boundary(Schedule_manager, "Action Manager"){
+  Component(Schedule_Repository, "Schedule Repository", "Репозиторий расписаний")
+  Component(Trigger_Repository, "Trigger Repository", "Репозиторий триггеров")
+  Component(Action_Manager, "Action Manager", "единая точка доступа для управления сценариями")
+
+  Action_Manager --> Schedule_Repository : "CRUD"
+  Action_Manager --> Trigger_Repository : "CRUD"
+}
+
+Container_Boundary(Trigger_Service, "Trigger Service"){
+  Component(Trigger_Consumer, "Trigger Consumer", "Подписка на показания датчиков каких-то категорий, и изменений температуры")
+  Component(Trigger_Handler, "Trigger Handler", "Сравнивает полученное значение с наличием таких же в базе, если найден, инициирует состояние в State Service")
+  Component(Postgres_Client_3, "Database Client", "Трансляция запросов на язык транзакций")
+
+  Trigger_Consumer -up-> Trigger_Handler : "Данные по триггеру"
+  Trigger_Handler --> Postgres_Client_3 : "GET"
+}
+
+Container_Boundary(Weather_Service, "Weather Service"){
+  Component(Weather_Controller, "Weather Listener", "Отслеживаение состояния погоды, и её изменений")
+  Component(Weather_Adapter, "Weather Adapter", "Предоставляет общий интерфейс для разных источников погодных данных")
+  Component(Weather_Produces, "Weather Producer", "Отправляет уведомления об изменениях погоды, и погодных аномалиях")
+  Weather_Controller --> Weather_Adapter : Uses
+  Weather_Controller --> Weather_Produces : Send Message
+}
+
+' === Внешние зависимости ===
+System_Ext(api_gw, "API Gateway", "KONG")
+System_Ext(Weather_Cache, "Weather Cache", "Redis, Шарды по локациям (область)")
+System_Ext(Weather_Api, "Weather Api")
+System_Ext(Event_Bus, "Event Bus", "KAFKA")
+System_Ext(Schedule_Db, "Shedule DB", "База пользовательских рассписаний")
+System_Ext(Trigger_Db, "Trigger DB", "База пользовательских триггеров")
+
+' Shedule Service
+Postgres_Client --> Schedule_Db : "SELECT StateId\nWHERE Time = now()"
+Schedule_Listener -up-> api_gw : "[REST]states:\\\control\* (States Service)"
+
+' Action manager
+api_gw -down-> Action_Manager : "[REST]actions:\\"
+Schedule_Repository --> Schedule_Db : "SELECT/SET"
+Trigger_Repository --> Trigger_Db : "SELECT/SET"
+
+' Trigger service
+Event_Bus --> Trigger_Consumer : "Показания устройств\Изменения погоды"
+Trigger_Handler -left-> api_gw : "[REST]states:\\\control\* (States Service)"
+Postgres_Client_3 --> Trigger_Db : "SELECT StateId"
+
+' Weather Service
+Weather_Controller -left-> Weather_Cache : "Чтение/Запись"
+Weather_Adapter --> Weather_Api : "Get"
+Weather_Produces --> Event_Bus : "Публикация погодных сообщений"
+
+' Compose
+
+
+@enduml

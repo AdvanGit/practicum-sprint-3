@@ -1,0 +1,16 @@
+@startuml
+title smart-home-monolith Context Diagram
+
+left to right direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+Person(user, "User", "Пользователь системы")
+System(heatingSystem, "Heating System", "Система управления отоплением")
+
+System_Ext(relay, "Heat Relay", "Устройство поддержания температуры")
+
+Rel(user, heatingSystem, "Uses the system")
+Rel(heatingSystem,relay,"Fetches temperature data")
+
+@enduml

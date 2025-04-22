@@ -1,0 +1,169 @@
+@startuml SmartHome_Container_Diagram
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Система умного дома - Контейнеры
+' === Акторы ===
+Person(User, "Жилец", "Управление домом")
+Person(Admin, "Администратор", "Настройка и отчёты")
+Person(Technician, "Техник", "Анализ аварий, устранение неполадок")
+
+' === Клиентские приложения ===
+Container(Mobile_App, "Мобильное приложение", "Android/iOS", "Управление домом")
+Container(Web_App, "Веб-приложение", "React", "Администрирование системы")
+
+' === Основные контейнеры ===
+Container(API_GW, "API Gateway", "KONG", "Единая точка входа для REST API, Распределенные транзакции, балансировка")
+ContainerDb(Redis_Api, "Static Cache", "Redis", "Кэширование статических данных")
+
+
+Boundary(User_Domain, "Домен: Пользователи (SmartHome.Users)") {
+    Container(Identity_Service, "Identity Service", "Spring Boot", "Регистрация/аутентификация")
+    Container(Notification_Service, "Notification Service", "Node.js", "SMS/Email/Push\nуведомления")
+    ContainerDb(User_Registry, "User Registry", "PostGre", "Профили пользователей, данные авторизации")
+
+    Identity_Service --> User_Registry : CRUD
+}
+Boundary(Devices_Domain, "Домен: Устройства (SmartHome.Devices)"){
+    Container(Device_Manager, "Device Manager", "Java", "Регистрация устройств:\nДобавление,Удаление\nВалидации")
+    Container(Map_Manager, "Map Manager", "Java", "Группировка устройств:\nДобавление,Удаление")
+    ContainerDb(Device_Registry, "Device registry", "PostGre",  "Хранение устройств пользователей")
+    ContainerDb(Map_Registry, "Map registry", "PostGre", "Пользовательская групировка устройств (только для UI/UX))")
+
+    Container(Device_Service, "Device Service", "Java", "Единая точка входа для инициирование изменения состояния устройства")
+
+    Device_Manager --> Device_Registry : CRUD
+    Map_Manager --> Map_Registry : CRUD
+    Device_Service --> Device_Registry : READ
+}
+Boundary(States_Domain, "Домен: Состояния (SmartHome.States)"){
+    Container(State_Manager, "State Manager", "Python", "Создание/Удаление/Ред. состояний (конфигураций)")
+    Container(State_Service, "State Service", "Python", "Прямое управление группами (активация конфигурации)")
+
+    ContainerDb(States_Registry, "States Registry", "PostGre", "Хранение пользовательских состояний ((k)StateId - (fk)ValueId's)")
+
+    State_Manager --> States_Registry : CRUD
+    State_Service --> States_Registry : READ
+}
+Boundary(Actions_Domain, "Домен: Сценарии (SmartHome.Actions)"){
+    Container(Schedule_Service, "Schedule Service", "Python", "Опрос состояний по текущему времени для активации")
+    Container(Trigger_Service, "Trigger Service", "Python", "Активация состояния по триггеру")
+    Container(Weather_Service, "Weather Service", "Python", "Сервис погоды")
+    Container(Action_Manager, "Action Manager", "Java", "Сервис пользовательских сценариев управления")
+
+    ContainerDb(Weather_Cache, "Weacher Cache", "Redis", "Кэш погодных данных")
+    ContainerDb(Schedule_Registry, "Schedule Registry", "PostGre", "Хранение времени активаций состояний (Time - StateId)")
+    ContainerDb(Trigger_Registry, "Trigger Registry", "PostGre", "Хранение триггеров активаций состояний (Trigger:(DeviceId - Value) - StateId)")
+
+    Schedule_Service --> Schedule_Registry : "READ"
+    Trigger_Service -down-> Trigger_Registry : "READ"
+    Weather_Service -down-> Weather_Cache : "R/W"
+
+    Action_Manager --> Trigger_Registry : "CRUD"
+    Action_Manager --> Schedule_Registry : "CRUD"
+
+    Weather_Service -[hidden]left-> Trigger_Registry
+    Trigger_Registry -[hidden]left-> Schedule_Registry
+}
+Boundary(Controls_Domain, "Домен: Контроль (SmartHome.Controls)"){
+    Container(Climate_Control_Service, "Climate Service", "Java", "Контроль HVAC")
+    Container(Lighting_Control_Service, "Lighting Service", "Java", "Управление светом")
+    Container(Security_Control_Service, "Security Service", "Java", "Охранные системы")
+    Container(Emergency_Service, "Emergency Service", "Java", "Аварийные ситуации")
+
+    ContainerDb(Redis, "Hardware Сache", "Redis", "Кэширование данных датчиков")
+
+    Climate_Control_Service -up-> Redis: R/W
+    Lighting_Control_Service -up-> Redis : R/W
+    Security_Control_Service -up-> Redis: W
+    Emergency_Service -up-> Redis : W
+
+    Climate_Control_Service -[hidden]right-> Lighting_Control_Service
+    Lighting_Control_Service -[hidden]right-> Security_Control_Service
+    Security_Control_Service -[hidden]right-> Emergency_Service
+}
+
+Boundary(Analytics_Domain, "Домен: Аналитика (SmartHome.Analysis)") {
+    Container(Analytics_Service, "Analytics Service", "Python + Spark", "ML-анализ данных")
+    Container(Report_Service, "Reporting Service", "Java", "Генерация отчётов, дашборды")
+    Container(Recommendations, "Recommendation Service", "Python", "Персонализированные рекомендации")
+    ContainerDb(TSDB, "Timescale Cache", "TimescaleDB", "Хранение показани\nдатчиков\nи комманд управления")
+
+    Analytics_Service -right-> TSDB : "Анализ"
+    Report_Service -down-> Analytics_Service
+    Recommendations -down-> Analytics_Service
+}
+
+' === Инфраструктурные сервисы ===
+Container(Event_Bus, "Event Bus", "Apache Kafka", "Асинхронная коммуникация")
+
+Boundary(Ext_devices, "Внешние устройства"){
+    System_Ext(Security_HW, "Охранные устройства", "IoT (MQTT)")
+    System_Ext(Climate_HW, "Климатические устройства", "IoT (MQTT)")
+    System_Ext(Lighting_HW, "Устройства освещения", "IoT (MQTT)")
+    System_Ext(Emergency_HW, "Аварийные датчики", "IoT (MQTT)")
+
+}
+
+System_Ext(Weather_Api, "Погодный API", "REST API")
+
+' === Взаимодействия ===
+' Пользователи
+User --> Mobile_App : "Управление"
+Admin --> Web_App : "Администрирование"
+Technician --> Mobile_App : "Диагностика"
+
+' API Gateway
+Mobile_App --> API_GW : "HTTPS (REST)"
+Web_App --> API_GW : "HTTPS (REST)"
+
+API_GW -up-> Redis_Api
+
+API_GW --> Recommendations : "/recommendations/*"
+API_GW --> Report_Service : "/reports/*"
+API_GW --> Identity_Service : "jwt\ncridentials"
+
+API_GW --> State_Manager : "/states/manager/*"
+API_GW <--> State_Service : "REST in:/states/control/*\nout:/divices/control/*"
+
+API_GW --> Device_Manager : "/devices/manager/*\n\n\n\n\n\n"
+API_GW <--> Device_Service : "REST in:/devices/control/*\n out:/controls/*"
+API_GW --> Map_Manager : "/devices/maps/*"
+
+API_GW --> Climate_Control_Service : "/controls/climate/*"
+API_GW --> Lighting_Control_Service : "/controls/lighting/*"
+API_GW --> Security_Control_Service : "/controls/security/*"
+API_GW <-- Emergency_Service : "[POST]/controls/*"
+
+API_GW --> Action_Manager : "/actions/*"
+API_GW <-- Schedule_Service : "[POST] /states/control/* (Activate state)"
+API_GW <-- Trigger_Service : "[POST] /states/control/* (Activate state)"
+
+' Event Bus
+Climate_Control_Service --> Event_Bus : "команды управления"
+Lighting_Control_Service --> Event_Bus : "команды управления"
+
+Event_Bus --> Climate_HW : "команды/показания устройств"
+Event_Bus --> Lighting_HW : "команды/показания устройств"
+Event_Bus --> Trigger_Service : "показания устройств/изменения погоды"
+Event_Bus <-- Device_Service : "топик ответов устройств. для типизации данных, и последующей передачи в контроль"
+
+Weather_Service -down-> Weather_Api : "Получение погодных данных"
+Weather_Service --> Event_Bus : "Уведомления о погодных аномалиях/изменения температуры"
+
+TSDB <-- Event_Bus : "Получение обработанных и агрегированных параметров датчиков и исполнительных комманд (Sub)"
+Notification_Service <-- Event_Bus : "Получение сообщений уведомлений"
+
+' MQTT
+Security_Control_Service <--> Security_HW : "MQTT"
+Emergency_Service <--> Emergency_HW : "MQTT"
+
+' Compose
+Device_Registry -[hidden]down-> Event_Bus
+Event_Bus -[hidden]down-> Ext_devices
+User_Registry -[hidden]left-> Notification_Service
+Analytics_Service -[hidden]right-> Climate_Control_Service
+
+Schedule_Service -[hidden]right-> Trigger_Service
+Weather_Cache -[hidden]down-> Weather_Api
+
+@enduml
